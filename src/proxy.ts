@@ -8,8 +8,17 @@ const DEV_SESSION_COOKIE = "shlonek_dev_session";
 const PROTECTED_PREFIXES = ["/account", "/checkout"];
 
 export async function proxy(request: NextRequest) {
+  const { pathname, search, searchParams } = request.nextUrl;
+
+  // Supabase falls back to its "Site URL" (the home page) when the requested return
+  // address isn't on its allow list. Finish that sign-in instead of dropping the code.
+  if (pathname === "/" && searchParams.has("code")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   const { response, hasUser } = await updateSupabaseSession(request);
-  const { pathname, search } = request.nextUrl;
 
   const signedIn = hasUser || request.cookies.has(DEV_SESSION_COOKIE);
 
