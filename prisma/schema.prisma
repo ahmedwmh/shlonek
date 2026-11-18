@@ -1,0 +1,571 @@
+// شلونك.com — data model
+// See PROJECT_BRIEF.md §5 for the logical model. Money is stored as whole IQD (Int).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  MEMBER
+  COACH
+  ADMIN
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  /// Supabase auth user id (or dev-login id locally). Never shown publicly.
+  authId              String    @unique
+  email               String    @unique
+  name                String
+  avatarUrl           String?
+  phone               String?
+  role                Role      @default(MEMBER)
+  termsVersion        String?
+  termsAcceptedAt     DateTime?
+  contactByEmail      Boolean   @default(true)
+  contactByPhone      Boolean   @default(false)
+  deletionRequestedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  wallet         Wallet?
+  privatePosts   PrivatePost[]
+  drafts         ExerciseDraft[]
+  attempts       ExerciseAttempt[]
+  orders         Order[]
+  premiumPeriods PremiumPeriod[]
+  purchases      ConsultationPurchase[]
+  bookings       Booking[]              @relation("BookingMember")
+  coachBookings  Booking[]              @relation("BookingCoach")
+  availability   WeeklyAvailability[]
+  timeOff        TimeOff[]
+  staffNotes     StaffNote[]            @relation("NoteSubject")
+  authoredNotes  StaffNote[]            @relation("NoteAuthor")
+  walletActions  WalletTransaction[]    @relation("WalletActor")
+  reviewedPosts  PublicPost[]           @relation("PostReviewer")
+  auditLogs      AuditLog[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// «احچيلي» — private posts and their anonymous public version
+// ─────────────────────────────────────────────────────────────
+
+enum PrivatePostStatus {
+  NEW
+  READ
+  FOLLOWING
+  CLOSED
+}
+
+model PrivatePost {
+  id                 String            @id @default(cuid())
+  userId             String
+  body               String
+  status             PrivatePostStatus @default(NEW)
+  publishConsent     Boolean           @default(false)
+  consentAt          DateTime?
+  consentWithdrawnAt DateTime?
+  /// Client-generated key so double clicks / retries create one record.
+  clientRequestId    String
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicPost PublicPost?
+  notes      StaffNote[]
+
+  @@unique([userId, clientRequestId])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum PublicPostStatus {
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  HIDDEN
+}
+
+/// The only table the public site reads for posts. It never exposes the author.
+model PublicPost {
+  /// Public id, unrelated to the private post id.
+  id              String           @id @default(cuid())
+  privatePostId   String           @unique
+  text            String
+  status          PublicPostStatus @default(PENDING_REVIEW)
+  rejectionReason String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  privatePost PrivatePost @relation(fields: [privatePostId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation("PostReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+}
+
+model StaffNote {
+  id            String   @id @default(cuid())
+  subjectId     String
+  authorId      String
+  privatePostId String?
+  body          String
+  createdAt     DateTime @default(now())
+
+  subject     User         @relation("NoteSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  author      User         @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  privatePost PrivatePost? @relation(fields: [privatePostId], references: [id], onDelete: SetNull)
+
+  @@index([subjectId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Exercises — versioned content, private drafts, permanent attempts
+// ─────────────────────────────────────────────────────────────
+
+enum ExerciseAccess {
+  FREE
+  PREMIUM
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Exercise {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  summary          String
+  access           ExerciseAccess @default(FREE)
+  status           ContentStatus  @default(DRAFT)
+  sortOrder        Int            @default(0)
+  estimatedMinutes Int?
+  /// Points at the published version members take now.
+  currentVersionId String?        @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  currentVersion ExerciseVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions       ExerciseVersion[] @relation("ExerciseVersions")
+  attempts       ExerciseAttempt[]
+
+  @@index([status, sortOrder])
+}
+
+/// Immutable once published. Editing an exercise publishes a new version.
+model ExerciseVersion {
+  id          String    @id @default(cuid())
+  exerciseId  String
+  version     Int
+  intro       String
+  /// Validated by `exerciseDefinitionSchema` (questions + result rules).
+  definition  Json
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  exercise   Exercise          @relation("ExerciseVersions", fields: [exerciseId], references: [id], onDelete: Cascade)
+  currentFor Exercise?         @relation("CurrentVersion")
+  drafts     ExerciseDraft[]
+  attempts   ExerciseAttempt[]
+
+  @@unique([exerciseId, version])
+}
+
+model ExerciseDraft {
+  id                String   @id @default(cuid())
+  userId            String
+  exerciseVersionId String
+  answers           Json
+  updatedAt         DateTime @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version ExerciseVersion @relation(fields: [exerciseVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseVersionId])
+}
+
+model ExerciseAttempt {
+  id                String   @id @default(cuid())
+  userId            String
+  exerciseId        String
+  exerciseVersionId String
+  answers           Json
+  /// Snapshot of the result as shown at completion time.
+  result            Json
+  score             Int?
+  clientRequestId   String
+  completedAt       DateTime @default(now())
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  version  ExerciseVersion @relation(fields: [exerciseVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, exerciseId, completedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Consultations — services, availability, purchases, bookings
+// ─────────────────────────────────────────────────────────────
+
+enum ConsultationKind {
+  SINGLE
+  PACKAGE
+}
+
+enum DeliveryMethod {
+  ONLINE
+  IN_PERSON
+}
+
+model ConsultationService {
+  id              String           @id @default(cuid())
+  kind            ConsultationKind @unique
+  title           String
+  description     String
+  sessionsCount   Int
+  durationMinutes Int
+  price           Int
+  deliveryMethod  DeliveryMethod   @default(ONLINE)
+  deliveryNote    String?
+  isActive        Boolean          @default(true)
+  sortOrder       Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  purchases ConsultationPurchase[]
+}
+
+/// Weekly working hours in the platform timezone (Asia/Baghdad), minutes from midnight.
+model WeeklyAvailability {
+  id          String @id @default(cuid())
+  coachId     String
+  /// 0 = Sunday … 6 = Saturday
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+
+  coach User @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([coachId, weekday])
+}
+
+model TimeOff {
+  id       String   @id @default(cuid())
+  coachId  String
+  startsAt DateTime
+  endsAt   DateTime
+  reason   String?
+
+  coach User @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([coachId, startsAt])
+}
+
+enum PurchaseStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+/// One purchase = one order. A package purchase owns exactly `sessionsCount` bookings.
+model ConsultationPurchase {
+  id            String         @id @default(cuid())
+  userId        String
+  serviceId     String
+  orderId       String         @unique
+  sessionsCount Int
+  status        PurchaseStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service  ConsultationService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  order    Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  bookings Booking[]
+}
+
+enum BookingStatus {
+  HELD
+  CONFIRMED
+  EXPIRED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  purchaseId    String
+  userId        String
+  coachId       String
+  sequence      Int
+  startsAt      DateTime
+  endsAt        DateTime
+  status        BookingStatus @default(HELD)
+  holdExpiresAt DateTime?
+  meetingUrl    String?
+  memberNote    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  purchase ConsultationPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  user     User                 @relation("BookingMember", fields: [userId], references: [id], onDelete: Cascade)
+  coach    User                 @relation("BookingCoach", fields: [coachId], references: [id], onDelete: Restrict)
+
+  // A partial unique index (see migration `booking_no_double_booking`) guarantees one
+  // live booking (HELD/CONFIRMED/COMPLETED) per coach per start time.
+  @@index([coachId, startsAt])
+  @@index([userId, startsAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Premium — fixed periods bought one at a time (no auto-renew)
+// ─────────────────────────────────────────────────────────────
+
+model PremiumPlan {
+  id           String   @id @default(cuid())
+  name         String
+  durationDays Int
+  price        Int
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  periods PremiumPeriod[]
+  orders  Order[]
+}
+
+model PremiumPeriod {
+  id           String    @id @default(cuid())
+  userId       String
+  /// Set for purchases; manual grants by staff (week / month / custom days) may have no plan.
+  planId       String?
+  orderId      String?   @unique
+  startsAt     DateTime
+  endsAt       DateTime
+  /// Manual activations by staff are audited.
+  grantedBy    String?
+  /// Staff reason for a manual grant or an early end.
+  note         String?
+  endedEarlyAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan  PremiumPlan? @relation(fields: [planId], references: [id], onDelete: Restrict)
+  order Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([userId, endsAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Orders, payments, wallet
+// ─────────────────────────────────────────────────────────────
+
+enum OrderKind {
+  CONSULTATION
+  PREMIUM
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  VERIFYING
+  PAID
+  FAILED
+  CANCELLED
+  EXPIRED
+  NEEDS_REVIEW
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  /// Human-friendly order number shown to members and staff.
+  number          Int         @unique @default(autoincrement())
+  userId          String
+  kind            OrderKind
+  status          OrderStatus @default(AWAITING_PAYMENT)
+  title           String
+  /// Server-computed and frozen at creation (IQD).
+  subtotal        Int
+  discount        Int         @default(0)
+  total           Int
+  walletAmount    Int         @default(0)
+  gatewayAmount   Int         @default(0)
+  /// Wallet part is reserved (not yet spent) while a gateway payment is pending.
+  walletHeld      Boolean     @default(false)
+  currency        String      @default("IQD")
+  premiumPlanId   String?
+  expiresAt       DateTime?
+  paidAt          DateTime?
+  /// Wayl link data. Each payment attempt gets a fresh, unique referenceId.
+  waylReferenceId String?     @unique
+  waylLinkId      String?
+  waylUrl         String?
+  waylStatus      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  premiumPlan   PremiumPlan?          @relation(fields: [premiumPlanId], references: [id], onDelete: Restrict)
+  consultation  ConsultationPurchase?
+  premiumPeriod PremiumPeriod?
+  walletTxs     WalletTransaction[]
+  paymentEvents PaymentEvent[]
+  refunds       Refund[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PaymentEvent {
+  id             String   @id @default(cuid())
+  orderId        String?
+  provider       String
+  /// Dedupe key, e.g. `wayl:<referenceId>:<status>`.
+  eventKey       String   @unique
+  status         String?
+  signatureValid Boolean
+  payload        Json
+  receivedAt     DateTime @default(now())
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+enum RefundMethod {
+  WALLET
+  GATEWAY
+}
+
+enum RefundStatus {
+  REQUESTED
+  COMPLETED
+  REJECTED
+}
+
+model Refund {
+  id          String       @id @default(cuid())
+  orderId     String
+  amount      Int
+  method      RefundMethod
+  status      RefundStatus @default(REQUESTED)
+  reason      String
+  externalId  String?
+  createdById String
+  createdAt   DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  /// Spendable + reserved. Only changed together with a WalletTransaction row.
+  balance   Int      @default(0)
+  /// Amount reserved by pending gateway orders.
+  held      Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+}
+
+enum WalletTxType {
+  TOPUP
+  PURCHASE
+  REFUND
+  ADJUSTMENT
+}
+
+/// Append-only ledger. `amount` is signed (+credit / -debit).
+model WalletTransaction {
+  id           String       @id @default(cuid())
+  walletId     String
+  type         WalletTxType
+  amount       Int
+  balanceAfter Int
+  orderId      String?
+  actorId      String?
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  actor  User?  @relation("WalletActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Site content, settings, audit
+// ─────────────────────────────────────────────────────────────
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  bio       String?
+  photoUrl  String?
+  sortOrder Int      @default(0)
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PolicyKind {
+  PRIVACY
+  TERMS
+  BOOKING
+  PAYMENT
+}
+
+model Policy {
+  id          String     @id @default(cuid())
+  kind        PolicyKind
+  version     String
+  title       String
+  body        String
+  publishedAt DateTime   @default(now())
+
+  @@unique([kind, version])
+  @@index([kind, publishedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

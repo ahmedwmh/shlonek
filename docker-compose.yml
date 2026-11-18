@@ -1,0 +1,17 @@
+# Local development database only. Production uses Supabase Postgres.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: shlonek-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shlonek
+      POSTGRES_PASSWORD: shlonek
+      POSTGRES_DB: shlonek
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - shlonek-pg-data:/var/lib/postgresql/data
+
+volumes:
+  shlonek-pg-data:
