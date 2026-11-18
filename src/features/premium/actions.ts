@@ -4,6 +4,7 @@ import { OrderKind } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getViewer } from "@/lib/auth/dal";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
+import { expireStaleOrders } from "@/features/payments/orders";
 
 /** Premium is a one-off purchase of a fixed period (no auto-renew). */
 export async function createPremiumOrder(planId: string): Promise<ActionResult<{ orderId: string }>> {
@@ -13,6 +14,8 @@ export async function createPremiumOrder(planId: string): Promise<ActionResult<{
   if (typeof planId !== "string" || planId.length > 64) return fail("هذي الخطة غير متاحة.");
   const plan = await db.premiumPlan.findFirst({ where: { id: planId, isActive: true } });
   if (!plan) return fail("هذي الخطة غير متاحة.");
+
+  await expireStaleOrders({ userId: viewer.id });
 
   // Double clicks / going back and forth reuse the same unpaid order.
   const existing = await db.order.findFirst({

@@ -3,7 +3,7 @@ import { BookingStatus, ConsultationKind, OrderKind, OrderStatus, Prisma } from 
 import { db } from "@/lib/db";
 import { UserFacingError } from "@/lib/action-result";
 import { getSettings } from "@/features/settings/queries";
-import { cancelOpenOrder } from "@/features/payments/orders";
+import { cancelOpenOrder, expireStaleOrders } from "@/features/payments/orders";
 import { getAvailableSlots } from "./availability";
 import { getCoach } from "./queries";
 import { isValidPackageSchedule } from "./package-weeks";
@@ -44,6 +44,7 @@ export async function createConsultationOrder(input: { userId: string; serviceId
     select: { id: true },
   });
   for (const o of open) await cancelOpenOrder(o.id, input.userId);
+  await expireStaleOrders({ userId: input.userId });
   await expireStaleHolds();
 
   const available = new Set(

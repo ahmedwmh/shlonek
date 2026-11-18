@@ -5,12 +5,14 @@ import { requireViewer } from "@/lib/auth/dal";
 import { formatDateTime, formatIQD } from "@/lib/format";
 import { orderStatusLabel } from "@/features/account/labels";
 import { getMyOrders } from "@/features/account/queries";
+import { expireStaleOrders } from "@/features/payments/orders";
 import { EmptyState, SectionHeader, SectionSkeleton, StatusPill } from "@/features/account/components/section";
 
 export const metadata: Metadata = { title: "طلباتي ومدفوعاتي" };
 
 async function Orders() {
   const viewer = await requireViewer("/account/orders");
+  await expireStaleOrders({ userId: viewer.id });
   const orders = await getMyOrders(viewer.id);
   const now = new Date();
 

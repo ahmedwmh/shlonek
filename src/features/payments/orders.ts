@@ -305,9 +305,14 @@ function notifyPaid(orderId: string, source: "wallet" | "gateway") {
 // ─────────────────────────────────────────────────────────────
 
 /** Expires unpaid orders past their hold, checking Wayl first so a late payment isn't lost. */
-export async function expireStaleOrders() {
+/**
+ * Expires unpaid orders past their hold (releasing reserved wallet money and held
+ * slots), checking Wayl first so a late payment isn't lost. Runs for one member on
+ * the spot when they act, and for everyone in the daily cron sweep.
+ */
+export async function expireStaleOrders({ userId }: { userId?: string } = {}) {
   const stale = await db.order.findMany({
-    where: { status: { in: OPEN_STATUSES }, expiresAt: { lt: new Date() } },
+    where: { status: { in: OPEN_STATUSES }, expiresAt: { lt: new Date() }, ...(userId ? { userId } : {}) },
     take: 50,
   });
   for (const order of stale) {

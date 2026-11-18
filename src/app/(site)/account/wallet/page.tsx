@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatDateTime, formatIQD } from "@/lib/format";
 import { getSettings } from "@/features/settings/queries";
 import { getWalletHistory, getWalletSummary } from "@/features/payments/wallet";
+import { expireStaleOrders } from "@/features/payments/orders";
 import { walletTxLabel } from "@/features/account/labels";
 import { SectionHeader, SectionSkeleton } from "@/features/account/components/section";
 
@@ -13,6 +14,8 @@ export const metadata: Metadata = { title: "محفظتي" };
 
 async function Wallet() {
   const viewer = await requireViewer("/account/wallet");
+  // Release money reserved by payments that ran out of time, before showing the balance.
+  await expireStaleOrders({ userId: viewer.id });
   const [summary, history, settings] = await Promise.all([
     getWalletSummary(viewer.id),
     getWalletHistory(viewer.id),
