@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LogOutIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { requireViewer } from "@/lib/auth/dal";
 import { signOut } from "@/features/auth/actions";
 import { getMyProfile } from "@/features/account/queries";
@@ -32,9 +32,13 @@ async function Settings() {
         }}
       />
       <form action={signOut}>
-        <Button type="submit" variant="outline" className="rounded-full border-2 border-foreground">
-          <LogOutIcon className="rtl:-scale-x-100" /> تسجيل الخروج
-        </Button>
+        <SubmitButton
+          variant="outline"
+          className="rounded-full border-2 border-foreground"
+          icon={<LogOutIcon className="rtl:-scale-x-100" />}
+        >
+          تسجيل الخروج
+        </SubmitButton>
       </form>
     </div>
   );

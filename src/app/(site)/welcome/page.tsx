@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Character } from "@/components/brand/character";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { requireViewer } from "@/lib/auth/dal";
 import { safeNext } from "@/lib/safe-next";
 import { acceptTerms } from "@/features/auth/actions";
@@ -36,9 +36,9 @@ async function WelcomeContent({ searchParams }: PageProps<"/welcome">) {
         </Link>
         .
       </p>
-      <Button type="submit" size="lg" className="h-12 rounded-full text-base">
+      <SubmitButton size="lg" className="h-12 rounded-full text-base">
         موافق، يلا نبدي
-      </Button>
+      </SubmitButton>
     </form>
   );
 }

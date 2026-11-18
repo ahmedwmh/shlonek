@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { CrownIcon, LayoutDashboardIcon, LogOutIcon, UserIcon, WalletIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,13 +64,21 @@ export function AccountMenu({ name, isStaff, isPremium }: Props) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <form action={signOut}>
-          <DropdownMenuItem asChild>
-            <button type="submit" className="w-full">
-              <LogOutIcon className="rtl:-scale-x-100" /> تسجيل الخروج
-            </button>
-          </DropdownMenuItem>
+          <SignOutItem />
         </form>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** Keeps the menu open while signing out so the spinner is visible. */
+function SignOutItem() {
+  const { pending } = useFormStatus();
+  return (
+    <DropdownMenuItem asChild disabled={pending} onSelect={(e) => e.preventDefault()}>
+      <button type="submit" className="w-full" aria-busy={pending}>
+        {pending ? <Spinner /> : <LogOutIcon className="rtl:-scale-x-100" />} تسجيل الخروج
+      </button>
+    </DropdownMenuItem>
   );
 }

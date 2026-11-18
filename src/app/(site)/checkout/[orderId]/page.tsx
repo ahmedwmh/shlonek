@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireViewer } from "@/lib/auth/dal";
 import { getSettings } from "@/features/settings/queries";
@@ -33,9 +33,9 @@ async function Checkout({ params }: PageProps<"/checkout/[orderId]">) {
       <section className="sketch-card p-6" aria-label="ملخص الطلب">
         <OrderSummary order={order} />
         <form action={cancel} className="mt-6">
-          <Button type="submit" variant="ghost" size="sm" className="rounded-full text-muted-foreground">
+          <SubmitButton variant="ghost" size="sm" className="rounded-full text-muted-foreground">
             إلغاء الطلب واختيار موعد ثاني
-          </Button>
+          </SubmitButton>
         </form>
       </section>
       <section className="sketch-card p-6" aria-label="طريقة الدفع">
