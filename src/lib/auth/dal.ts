@@ -21,6 +21,12 @@ export type Viewer = {
 
 async function syncUser(identity: AuthIdentity) {
   const isAdminEmail = adminEmails.has(identity.email);
+  // A seeded account waiting for its owner's first sign-in (prisma/seed.ts) is
+  // claimed by the matching email, keeping its role, wallet and coach schedule.
+  await db.user.updateMany({
+    where: { email: identity.email, authId: { startsWith: "pending:" } },
+    data: { authId: identity.authId, name: identity.name },
+  });
   return db.user.upsert({
     where: { authId: identity.authId },
     create: {

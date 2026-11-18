@@ -67,13 +67,16 @@ const loveFear = exerciseDefinitionSchema.parse({
 });
 
 async function main() {
-  // Admin + coach (the owner). Signs in locally with the dev login using this email.
+  // Admin + coach (the owner). Locally this is the dev-login account; on a real
+  // database pass SEED_OWNER_EMAIL and the row waits ("pending:") until that person
+  // signs in with Google, when the sign-in claims it (see syncUser in lib/auth/dal.ts).
+  const ownerEmail = (process.env.SEED_OWNER_EMAIL || "admin@shlonek.local").trim().toLowerCase();
   const admin = await db.user.upsert({
-    where: { email: "admin@shlonek.local" },
+    where: { email: ownerEmail },
     update: { role: Role.ADMIN },
     create: {
-      authId: "dev:admin@shlonek.local",
-      email: "admin@shlonek.local",
+      authId: ownerEmail.endsWith(".local") ? `dev:${ownerEmail}` : `pending:${ownerEmail}`,
+      email: ownerEmail,
       name: "مدير شلونك",
       role: Role.ADMIN,
       wallet: { create: {} },
@@ -182,7 +185,7 @@ async function main() {
     });
   }
 
-  console.log("Seed complete. Admin dev login: admin@shlonek.local");
+  console.log(`Seed complete. Owner (admin + coach): ${ownerEmail}`);
 }
 
 main()
