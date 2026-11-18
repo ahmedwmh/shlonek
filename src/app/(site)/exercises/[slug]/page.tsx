@@ -14,7 +14,8 @@ import { StartLocked } from "@/features/exercises/components/start-locked";
 
 export async function generateStaticParams() {
   const exercises = await getPublishedExercises();
-  return exercises.map((e) => ({ slug: e.slug }));
+  // Cache Components needs at least one param at build time (e.g. a fresh, empty database).
+  return exercises.length ? exercises.map((e) => ({ slug: e.slug })) : [{ slug: "__none__" }];
 }
 
 export async function generateMetadata({ params }: PageProps<"/exercises/[slug]">): Promise<Metadata> {

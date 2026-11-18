@@ -9,7 +9,10 @@ import { getAvailableSlots } from "@/features/consultations/availability";
 import { BookingWizard } from "@/features/consultations/components/booking-wizard";
 
 export async function generateStaticParams() {
-  return (await getActiveServices()).map((s) => ({ serviceId: s.id }));
+  const services = await getActiveServices();
+  // Cache Components needs at least one param at build time (e.g. a fresh, empty database).
+  // Unknown ids render on demand and the page answers with notFound().
+  return services.length ? services.map((s) => ({ serviceId: s.id })) : [{ serviceId: "__none__" }];
 }
 
 export async function generateMetadata({ params }: PageProps<"/consultations/[serviceId]">): Promise<Metadata> {
