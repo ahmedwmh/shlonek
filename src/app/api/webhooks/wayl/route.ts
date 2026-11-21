@@ -46,16 +46,19 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    // Duplicate delivery of an event we already processed.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-    throw error;
+    // A repeat delivery is only stored once, but we still re-sync below: if the
+    // first delivery failed half-way, Wayl's retry must be able to finish it.
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
   }
 
-  // Source of truth: ask Wayl for the link's current status.
-  const link = await getWaylLink(referenceId).catch(() => null);
-  if (link) await applyGatewayStatus(referenceId, link.status);
+  // Source of truth: ask Wayl for the link's current status (never trust the payload).
+  // If Wayl can't be reached, answer non-2xx so Wayl retries the webhook later.
+  const link = await getWaylLink(referenceId).catch((error) => {
+    console.error("[wayl] webhook status lookup failed", error);
+    return null;
+  });
+  if (!link) return NextResponse.json({ ok: false }, { status: 503 });
+  await applyGatewayStatus(referenceId, link.status, link.total);
 
   return NextResponse.json({ ok: true });
 }

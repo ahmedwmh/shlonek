@@ -175,7 +175,7 @@ async function expireOrderBookings(tx: Tx, orderId: string) {
  * Applies a gateway status for a referenceId. Safe to call many times:
  * duplicate "paid" notifications activate the order only once.
  */
-export async function applyGatewayStatus(referenceId: string, status: string) {
+export async function applyGatewayStatus(referenceId: string, status: string, paidTotal?: string | number) {
   const order = await db.order.findUnique({ where: { waylReferenceId: referenceId } });
   if (!order) return { handled: false as const };
 
@@ -187,6 +187,13 @@ export async function applyGatewayStatus(referenceId: string, status: string) {
       // Money arrived for a stale attempt (a newer referenceId exists): keep it for review.
       if (fresh.waylReferenceId !== referenceId) {
         await tx.order.update({ where: { id: order.id }, data: { status: OrderStatus.NEEDS_REVIEW, waylStatus: status } });
+        return OrderStatus.NEEDS_REVIEW;
+      }
+      // Defence in depth: the amount Wayl collected must be the amount we asked for.
+      // Anything else goes to staff review; the reserved wallet part stays reserved.
+      if (paidTotal !== undefined && Number(paidTotal) !== fresh.gatewayAmount) {
+        console.error("[wayl] amount mismatch", { orderId: fresh.id, expected: fresh.gatewayAmount, paidTotal });
+        await tx.order.update({ where: { id: fresh.id }, data: { status: OrderStatus.NEEDS_REVIEW, waylStatus: status } });
         return OrderStatus.NEEDS_REVIEW;
       }
       if (fresh.walletHeld && fresh.walletAmount > 0) {
@@ -218,7 +225,7 @@ export async function refreshGatewayStatus(orderId: string) {
   if (!order?.waylReferenceId || order.status !== OrderStatus.VERIFYING || !features.wayl) return;
   try {
     const link = await getWaylLink(order.waylReferenceId);
-    await applyGatewayStatus(order.waylReferenceId, link.status);
+    await applyGatewayStatus(order.waylReferenceId, link.status, link.total);
   } catch (error) {
     console.error("[wayl] status lookup failed", error);
   }
