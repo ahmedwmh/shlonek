@@ -23,6 +23,8 @@ import { PageSkeleton } from "@/features/admin/shared/components/page-skeleton";
 import { segmentedTabs } from "@/features/admin/shared/components/tabs-style";
 import {
   bookingStatus,
+  courseAccess,
+  enrollmentSource,
   orderKind,
   orderStatus,
   privatePostStatus,
@@ -197,6 +199,7 @@ async function MemberFile({ params }: PageProps<"/admin/members/[id]">) {
           {[
             ["exercises", "التمارين", m.attempts.length],
             ["consultations", "الاستشارات", m.purchases.length],
+            ["courses", "الكورسات", m.enrollments.length],
             ["orders", "الطلبات", m.orders.length],
             ["wallet", "سجل المحفظة", m.wallet?.transactions.length ?? 0],
             ["posts", "الرسائل", m.privatePosts.length],
@@ -222,6 +225,60 @@ async function MemberFile({ params }: PageProps<"/admin/members/[id]">) {
                 <AttemptsCompare attempts={group.attempts} />
               </Section>
             ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="courses" className="mt-5 flex flex-col gap-4">
+          {m.enrollments.length === 0 ? (
+            <EmptyState title="ما عنده كورسات أو ورشات" />
+          ) : (
+            <Section title="الكورسات والورشات" description="الوصول يُتحقق منه عند كل تشغيل: المجاني لكل المسجلين، بريميوم طول الاشتراك، والمدفوع حسب الشراء.">
+              <TableScroll>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>المحتوى</TableHead>
+                      <TableHead>النوع</TableHead>
+                      <TableHead>المصدر</TableHead>
+                      <TableHead>من</TableHead>
+                      <TableHead>الوصول</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {m.enrollments.map((e) => {
+                      const ended = Boolean(e.endsAt && e.endsAt <= now);
+                      return (
+                        <TableRow key={e.id}>
+                          <TableCell className="font-semibold">
+                            <Link href={`/admin/courses/${e.course.id}`} className="hover:underline">
+                              {e.course.title}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge map={courseAccess} value={e.course.access} />
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge map={enrollmentSource} value={e.source} />
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">{formatShortDate(e.startsAt)}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {e.course.access !== "PAID" ? (
+                              <Pill tone="outline">{e.course.access === "PREMIUM" ? "طول بريميوم" : "مجاني"}</Pill>
+                            ) : ended ? (
+                              <Pill tone="secondary">انتهى {formatShortDate(e.endsAt!)}</Pill>
+                            ) : e.endsAt ? (
+                              `لحد ${formatShortDate(e.endsAt)}`
+                            ) : (
+                              <Pill tone="default">دائم</Pill>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableScroll>
+            </Section>
           )}
         </TabsContent>
 

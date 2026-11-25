@@ -18,6 +18,7 @@ import { sendEmail } from "@/lib/email";
 import { formatIQD } from "@/lib/format";
 import { fail, ok, toFailure, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { postWalletEntry } from "@/features/payments/wallet";
+import { grantCourseFromOrder, revokeCourseForOrder } from "@/features/courses/enrollment";
 import { createWaylRefund } from "@/features/payments/wayl";
 import { admin, parse, zId, zText } from "../shared/guard";
 
@@ -72,6 +73,8 @@ export async function confirmOrderManually(input: unknown): Promise<ActionResult
         });
       }
 
+      if (order.kind === OrderKind.COURSE) await grantCourseFromOrder(tx, order);
+
       await tx.order.update({ where: { id: order.id }, data: { status: OrderStatus.PAID, paidAt: order.paidAt ?? new Date() } });
       await audit({ actorId: viewer.id, action: "order.confirm_manual", entityType: "Order", entityId: order.id, meta: { note: v.data.note } }, tx);
     });
@@ -90,7 +93,7 @@ async function refundedSoFar(tx: Tx, orderId: string) {
   return agg._sum.amount ?? 0;
 }
 
-/** On a full refund, access bought with the order ends (future sessions cancelled, premium period ended). */
+/** On a full refund, access bought with the order ends (future sessions cancelled, premium period ended, course closed). */
 async function revokeAccess(tx: Tx, orderId: string) {
   const now = new Date();
   const purchase = await tx.consultationPurchase.findUnique({ where: { orderId } });
@@ -101,6 +104,7 @@ async function revokeAccess(tx: Tx, orderId: string) {
     });
     await tx.consultationPurchase.update({ where: { id: purchase.id }, data: { status: PurchaseStatus.CANCELLED } });
   }
+  await revokeCourseForOrder(tx, orderId);
   const period = await tx.premiumPeriod.findUnique({ where: { orderId } });
   if (period && period.endsAt > now) {
     await tx.premiumPeriod.update({ where: { id: period.id }, data: { endsAt: period.startsAt > now ? period.startsAt : now } });

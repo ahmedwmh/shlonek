@@ -51,6 +51,7 @@ model User {
   staffNotes     StaffNote[]            @relation("NoteSubject")
   authoredNotes  StaffNote[]            @relation("NoteAuthor")
   walletActions  WalletTransaction[]    @relation("WalletActor")
+  enrollments    CourseEnrollment[]
   reviewedPosts  PublicPost[]           @relation("PostReviewer")
   auditLogs      AuditLog[]
 }
@@ -380,6 +381,7 @@ model PremiumPeriod {
 enum OrderKind {
   CONSULTATION
   PREMIUM
+  COURSE
 }
 
 enum OrderStatus {
@@ -412,6 +414,7 @@ model Order {
   walletHeld      Boolean     @default(false)
   currency        String      @default("IQD")
   premiumPlanId   String?
+  courseId        String?
   expiresAt       DateTime?
   paidAt          DateTime?
   /// Wayl link data. Each payment attempt gets a fresh, unique referenceId.
@@ -424,6 +427,8 @@ model Order {
 
   user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   premiumPlan   PremiumPlan?          @relation(fields: [premiumPlanId], references: [id], onDelete: Restrict)
+  course        Course?               @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  enrollment    CourseEnrollment?
   consultation  ConsultationPurchase?
   premiumPeriod PremiumPeriod?
   walletTxs     WalletTransaction[]
@@ -568,4 +573,129 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Courses & workshops
+// ─────────────────────────────────────────────────────────────
+
+enum CourseKind {
+  /// Multi-video course: free, or bought on its own.
+  COURSE
+  /// One or two recorded lectures: free for members, or for premium only.
+  WORKSHOP
+}
+
+enum CourseAccess {
+  /// Any signed-in member.
+  FREE
+  /// Bought separately (courses only). Premium members pay `premiumPrice`.
+  PAID
+  /// Only while premium is active (workshops only). Never sold on its own.
+  PREMIUM
+}
+
+enum VideoProvider {
+  /// Unlisted YouTube — free content only.
+  YOUTUBE
+  /// DRM-protected; playback needs a short-lived OTP from the server.
+  VDOCIPHER
+}
+
+enum EnrollmentSource {
+  /// Joined a free course / workshop.
+  JOIN
+  PURCHASE
+  /// Granted by staff.
+  ADMIN
+}
+
+model Course {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  kind         CourseKind
+  access       CourseAccess  @default(FREE)
+  status       ContentStatus @default(DRAFT)
+  title        String
+  summary      String
+  description  String        @default("")
+  /// المحاور — short topic lines.
+  topics       String[]      @default([])
+  presenter    String?
+  /// Bumped on every cover upload/removal so cached cover URLs refresh.
+  coverVersion Int           @default(0)
+  /// IQD. Set for PAID courses only (CHECK: >= 1000).
+  price        Int?
+  /// IQD price for active premium members (CHECK: 1000..price). Null = no discount.
+  premiumPrice Int?
+  /// Days of access after purchase. Null = no end.
+  accessDays   Int?
+  sortOrder    Int           @default(0)
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  cover       CourseCover?
+  lessons     CourseLesson[]
+  enrollments CourseEnrollment[]
+  orders      Order[]
+
+  @@index([status, kind, sortOrder])
+}
+
+/// Uploaded cover image (resized in the browser, max ~1 MB), served by
+/// /courses/[slug]/cover with long CDN caching. Kept apart from Course so
+/// course queries never load image bytes.
+model CourseCover {
+  courseId    String   @id
+  data        Bytes
+  contentType String
+  width       Int
+  height      Int
+  updatedAt   DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseLesson {
+  id              String        @id @default(cuid())
+  courseId        String
+  title           String
+  description     String?
+  sortOrder       Int           @default(0)
+  durationMinutes Int?
+  provider        VideoProvider
+  /// YouTube video id or VdoCipher video id. Never sent to people without access.
+  videoId         String
+  /// The single free intro of a paid course (anyone can watch it).
+  isPreview       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, sortOrder])
+}
+
+/// «مكتبتي»: a member's link to a course or workshop. For paid courses it is the
+/// ownership record (and `endsAt` its access window); for free content it only
+/// records joining — access itself is re-checked on every play.
+model CourseEnrollment {
+  id        String           @id @default(cuid())
+  userId    String
+  courseId  String
+  source    EnrollmentSource
+  /// The order that bought (or last extended) it.
+  orderId   String?          @unique
+  startsAt  DateTime         @default(now())
+  endsAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
 }

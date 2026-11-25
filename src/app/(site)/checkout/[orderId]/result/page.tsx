@@ -10,6 +10,7 @@ import { formatDate, formatTime } from "@/lib/format";
 import { getOrderForUser, refreshGatewayStatus } from "@/features/payments/orders";
 import { OrderSummary } from "@/features/payments/components/order-summary";
 import { AutoRefresh } from "@/features/payments/components/auto-refresh";
+import { coursePath } from "@/features/courses/cover";
 
 export const metadata: Metadata = { title: "حالة الدفع", robots: { index: false } };
 
@@ -38,7 +39,10 @@ async function Result({ params }: PageProps<"/checkout/[orderId]/result">) {
   const order = await getOrderForUser(orderId, viewer.id);
   if (!order) notFound();
 
-  const view = views[order.status];
+  const view =
+    order.status === "NEEDS_REVIEW" && order.kind !== "CONSULTATION"
+      ? { ...views.NEEDS_REVIEW, title: "وصلنا دفعك، ودا نراجعه", body: "فريقنا يراجع الطلب ويفعّله بأقرب وقت. ما تحتاج تدفع مرة ثانية." }
+      : views[order.status];
   const Icon = view.icon;
   const success = order.status === "PAID";
 
@@ -62,6 +66,12 @@ async function Result({ params }: PageProps<"/checkout/[orderId]/result">) {
             بريميوم فعّال من {formatDate(order.premiumPeriod.startsAt)} إلى {formatDate(order.premiumPeriod.endsAt)}
           </p>
         )}
+        {success && order.course && (
+          <p className="font-semibold">
+            «{order.course.title}» صار بكورساتك
+            {order.enrollment?.endsAt ? ` لحد ${formatDate(order.enrollment.endsAt)}` : ""}.
+          </p>
+        )}
         {success && order.consultation && (
           <p className="text-sm">
             أول جلسة: {formatDate(order.consultation.bookings[0].startsAt)} ·{" "}
@@ -75,11 +85,15 @@ async function Result({ params }: PageProps<"/checkout/[orderId]/result">) {
             </Button>
           ) : order.status === "EXPIRED" || order.status === "CANCELLED" ? (
             <Button asChild className="rounded-full">
-              <Link href={order.kind === "PREMIUM" ? "/premium" : "/consultations"}>ابدأ من جديد</Link>
+              <Link href={order.course ? coursePath(order.course.slug) : order.kind === "PREMIUM" ? "/premium" : "/consultations"}>
+                ابدأ من جديد
+              </Link>
             </Button>
           ) : (
             <Button asChild className="rounded-full">
-              <Link href={order.kind === "PREMIUM" ? "/account/subscription" : "/account/consultations"}>افتح حسابي</Link>
+              <Link href={order.course ? coursePath(order.course.slug) : order.kind === "PREMIUM" ? "/account/subscription" : "/account/consultations"}>
+                {order.course ? (order.course.kind === "WORKSHOP" ? "افتح الورشة" : "افتح الكورس") : "افتح حسابي"}
+              </Link>
             </Button>
           )}
           <Button asChild variant="outline" className="rounded-full border-2 border-foreground">

@@ -69,6 +69,10 @@ export async function getMemberFile(id: string) {
         },
       },
       orders: { orderBy: { createdAt: "desc" }, take: 30 },
+      enrollments: {
+        orderBy: { updatedAt: "desc" },
+        include: { course: { select: { id: true, title: true, kind: true, access: true } } },
+      },
       privatePosts: { orderBy: { createdAt: "desc" }, take: 20, select: { id: true, body: true, status: true, createdAt: true } },
       staffNotes: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } },
     },

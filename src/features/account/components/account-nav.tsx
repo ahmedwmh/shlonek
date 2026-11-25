@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { m } from "motion/react";
 import {
+  BookOpenIcon,
   CalendarIcon,
   CrownIcon,
   LayoutGridIcon,
@@ -20,6 +21,7 @@ const items = [
   { href: "/account/posts", label: "مشاركاتي", icon: MessageSquareTextIcon },
   { href: "/account/consultations", label: "استشاراتي", icon: CalendarIcon },
   { href: "/account/exercises", label: "تماريني ونتائجي", icon: SparklesIcon },
+  { href: "/account/courses", label: "كورساتي", icon: BookOpenIcon },
   { href: "/account/subscription", label: "اشتراكي", icon: CrownIcon },
   { href: "/account/wallet", label: "محفظتي", icon: WalletIcon },
   { href: "/account/orders", label: "طلباتي ومدفوعاتي", icon: ReceiptIcon },

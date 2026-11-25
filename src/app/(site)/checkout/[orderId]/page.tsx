@@ -34,7 +34,7 @@ async function Checkout({ params }: PageProps<"/checkout/[orderId]">) {
         <OrderSummary order={order} />
         <form action={cancel} className="mt-6">
           <SubmitButton variant="ghost" size="sm" className="rounded-full text-muted-foreground">
-            إلغاء الطلب واختيار موعد ثاني
+            {order.kind === "CONSULTATION" ? "إلغاء الطلب واختيار موعد ثاني" : "إلغاء الطلب"}
           </SubmitButton>
         </form>
       </section>
@@ -52,11 +52,15 @@ async function Checkout({ params }: PageProps<"/checkout/[orderId]">) {
           بالدفع توافق على{" "}
           <Link href="/policies/payment" className="underline">
             سياسة الدفع
-          </Link>{" "}
-          و
-          <Link href="/policies/booking" className="underline">
-            سياسة الحجز
           </Link>
+          {order.kind === "CONSULTATION" && (
+            <>
+              {" "}و
+              <Link href="/policies/booking" className="underline">
+                سياسة الحجز
+              </Link>
+            </>
+          )}
           .
         </p>
       </section>

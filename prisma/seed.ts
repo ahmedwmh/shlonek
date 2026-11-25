@@ -15,6 +15,7 @@ import {
   Role,
 } from "../src/generated/prisma/client";
 import { exerciseDefinitionSchema } from "../src/features/exercises/definition";
+import { seedWorkshops } from "./seed-workshops";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
@@ -184,6 +185,8 @@ async function main() {
       create: { ...p, version: "1" },
     });
   }
+
+  await seedWorkshops(db);
 
   console.log(`Seed complete. Owner (admin + coach): ${ownerEmail}`);
 }

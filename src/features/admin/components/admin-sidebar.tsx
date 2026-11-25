@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarClockIcon,
   ClipboardListIcon,
+  GraduationCapIcon,
   CrownIcon,
   ExternalLinkIcon,
   InboxIcon,
@@ -48,6 +49,7 @@ const groups: { label: string; items: Item[] }[] = [
     items: [
       { href: "/admin/consultations", label: "الاستشارات والتقويم", icon: CalendarClockIcon },
       { href: "/admin/exercises", label: "التمارين", icon: ClipboardListIcon },
+      { href: "/admin/courses", label: "الكورسات والورشات", icon: GraduationCapIcon },
       { href: "/admin/premium", label: "بريميوم", icon: CrownIcon },
     ],
   },

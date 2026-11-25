@@ -8,4 +8,6 @@ export const tags = {
   premiumPlans: "premium-plans",
   team: "team",
   policies: "policies",
+  courses: "courses",
+  course: (slug: string) => `course:${slug}`,
 } as const;

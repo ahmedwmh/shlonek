@@ -7,6 +7,7 @@ import { UserFacingError } from "@/lib/action-result";
 import { sendEmail } from "@/lib/email";
 import { formatDateTime, formatIQD } from "@/lib/format";
 import { getSettings } from "@/features/settings/queries";
+import { grantCourseFromOrder } from "@/features/courses/enrollment";
 import { holdWalletAmount, lockWallet, postWalletEntry, releaseWalletHold, spendable } from "./wallet";
 import { splitPayment } from "./split";
 import {
@@ -44,6 +45,8 @@ export async function getOrderForUser(orderId: string, userId: string) {
       },
       premiumPlan: { select: { name: true, durationDays: true } },
       premiumPeriod: { select: { startsAt: true, endsAt: true } },
+      course: { select: { slug: true, title: true, kind: true } },
+      enrollment: { select: { endsAt: true } },
     },
   });
 }
@@ -281,6 +284,8 @@ async function fulfilOrder(tx: Tx, orderId: string, meta: { source: "wallet" | "
       },
     });
   }
+
+  if (order.kind === OrderKind.COURSE) await grantCourseFromOrder(tx, order);
 
   await tx.order.update({ where: { id: orderId }, data: { status, paidAt: now } });
   notifyPaid(orderId, meta.source);

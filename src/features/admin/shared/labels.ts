@@ -38,7 +38,7 @@ export const orderStatus: Record<string, Labelled> = {
   PARTIALLY_REFUNDED: { label: "مسترد جزئياً", tone: "outline" },
 };
 
-export const orderKind: Record<string, string> = { CONSULTATION: "استشارة", PREMIUM: "بريميوم" };
+export const orderKind: Record<string, string> = { CONSULTATION: "استشارة", PREMIUM: "بريميوم", COURSE: "كورس" };
 
 export const contentStatus: Record<string, Labelled> = {
   DRAFT: { label: "مسودة", tone: "secondary" },
@@ -77,3 +77,25 @@ export const policyKind: Record<string, string> = {
 };
 
 export const weekdays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+export const courseKind: Record<string, Labelled> = {
+  COURSE: { label: "كورس", tone: "outline" },
+  WORKSHOP: { label: "ورشة", tone: "outline" },
+};
+
+export const courseAccess: Record<string, Labelled> = {
+  FREE: { label: "مجاني", tone: "outline" },
+  PAID: { label: "مدفوع", tone: "default" },
+  PREMIUM: { label: "لبريميوم", tone: "default" },
+};
+
+export const videoProvider: Record<string, Labelled> = {
+  YOUTUBE: { label: "YouTube (غير مدرج)", tone: "outline" },
+  VDOCIPHER: { label: "VdoCipher (محمي)", tone: "default" },
+};
+
+export const enrollmentSource: Record<string, Labelled> = {
+  JOIN: { label: "انضمام", tone: "outline" },
+  PURCHASE: { label: "شراء", tone: "default" },
+  ADMIN: { label: "من الفريق", tone: "secondary" },
+};

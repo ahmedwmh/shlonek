@@ -39,6 +39,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static files, images and the payment webhook (signed, server-to-server).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  // Skip static files, images (incl. course covers) and the payment webhook (signed, server-to-server).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|api/webhooks|courses/[^/]+/cover|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

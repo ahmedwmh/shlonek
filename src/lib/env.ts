@@ -44,6 +44,9 @@ const schema = z.object({
   ADMIN_NOTIFY_EMAILS: z.preprocess(clean, z.string().default("")),
 
   CRON_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+
+  /** VdoCipher API secret (DRM video for paid courses and premium workshops). */
+  VDOCIPHER_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 export const env = schema.parse(process.env);
@@ -54,6 +57,7 @@ export const features = {
   devLogin: env.NODE_ENV !== "production" && env.DEV_LOGIN_ENABLED === "true" && Boolean(env.SESSION_SECRET),
   wayl: Boolean(env.WAYL_API_KEY && env.WAYL_WEBHOOK_SECRET),
   email: Boolean(env.RESEND_API_KEY),
+  vdocipher: Boolean(env.VDOCIPHER_API_SECRET),
 } as const;
 
 /** Real inboxes for staff alerts (dev-only `.local` addresses are skipped). */
