@@ -58,7 +58,13 @@ export function CourseActionCard({
           </Button>
         ) : (
           <WatchButton courseId={course.id} enrolled={Boolean(facts.enrollment)} href={href} playLessonId={playHereLessonId} isSignedIn>
-            {facts.enrollment ? "تابع المشاهدة" : isWorkshop ? "شاهد الورشة" : "ابدأ الكورس مجاناً"}
+            {playHereLessonId
+              ? isWorkshop
+                ? "شاهد الورشة"
+                : "شاهد الكورس"
+              : facts.enrollment
+                ? "تابع المشاهدة"
+                : "ابدأ الكورس مجاناً"}
           </WatchButton>
         )
       ) : gate === "closed" ? (
@@ -109,11 +115,18 @@ export function CourseActionCard({
             <CrownIcon className="size-4 shrink-0" /> بريميوم يفتح كل ورشات بريميوم طول مدة اشتراكك.
           </li>
         )}
-        {course.access === "FREE" && (
-          <li className="flex items-center gap-2">
-            <CheckCircle2Icon className="size-4 shrink-0" /> ينحفظ بـ«كورساتي» حتى ترجعله من أي جهاز.
-          </li>
-        )}
+        {course.access !== "PAID" &&
+          (facts.enrollment ? (
+            <li className="flex items-center gap-2 font-semibold text-foreground">
+              <CheckCircle2Icon className="size-4 shrink-0" /> موجودة بكورساتك، ترجعلها من أي جهاز.
+            </li>
+          ) : (
+            course.access === "FREE" && (
+              <li className="flex items-center gap-2">
+                <CheckCircle2Icon className="size-4 shrink-0" /> تنحفظ بـ«كورساتي» أول ما تشاهدها.
+              </li>
+            )
+          ))}
       </ul>
     </div>
   );

@@ -7,6 +7,8 @@ export const lessonPath = (slug: string, lessonId: string) => `${coursePath(slug
 
 /** Event the action card dispatches to start the page's main player. */
 export const PLAY_EVENT = "shlonek:play";
+/** Event the player dispatches once a video is actually playing (detail = lessonId). */
+export const PLAYING_EVENT = "shlonek:playing";
 
 /** Arabic slugs may arrive percent-encoded in route params; the database stores them decoded. */
 export function decodeSlug(raw: string) {

@@ -1,14 +1,15 @@
 "use client";
 
-import { useTransition, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ComponentProps, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { AudioLinesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthGate } from "@/features/auth/hooks/use-auth-gate";
 import { cn } from "@/lib/utils";
 import { createCourseOrder, joinCourse } from "../actions";
-import { PLAY_EVENT } from "../cover";
+import { PLAY_EVENT, PLAYING_EVENT } from "../cover";
 
 const big = "h-12 w-full rounded-full text-base";
 
@@ -34,6 +35,24 @@ export function WatchButton({
   const router = useRouter();
   const gate = useAuthGate(isSignedIn);
   const [pending, start] = useTransition();
+  const [playing, setPlaying] = useState(false);
+
+  // Single-video content: once the page's player is running, this button has nothing left to do.
+  useEffect(() => {
+    if (!playLessonId) return;
+    const onPlaying = (e: Event) => (e as CustomEvent<string>).detail === playLessonId && setPlaying(true);
+    window.addEventListener(PLAYING_EVENT, onPlaying);
+    return () => window.removeEventListener(PLAYING_EVENT, onPlaying);
+  }, [playLessonId]);
+
+  if (playing) {
+    return (
+      <Button className={big} variant="secondary" disabled aria-live="polite">
+        <AudioLinesIcon className="animate-pulse" /> قيد التشغيل
+      </Button>
+    );
+  }
+
   return (
     <Button
       className={big}

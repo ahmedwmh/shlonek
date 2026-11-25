@@ -9,7 +9,7 @@ import { useAuthGate } from "@/features/auth/hooks/use-auth-gate";
 import { cn } from "@/lib/utils";
 import type { Gate } from "../access";
 import { startPlayback, type Playback } from "../actions";
-import { PLAY_EVENT } from "../cover";
+import { PLAY_EVENT, PLAYING_EVENT } from "../cover";
 import { BuyCourseButton } from "./course-buttons";
 
 const frame = "absolute inset-0 size-full border-0";
@@ -47,7 +47,10 @@ export function PlayerStage({
     setError(null);
     start(async () => {
       const result = await startPlayback(courseId, lessonId);
-      if (result.ok) setPlayback(result.data);
+      if (result.ok) {
+        setPlayback(result.data);
+        window.dispatchEvent(new CustomEvent(PLAYING_EVENT, { detail: lessonId }));
+      }
       else if ("gate" in result) setLockedBy(result.gate);
       else setError(result.error);
     });
